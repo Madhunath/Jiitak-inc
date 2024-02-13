@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_REGISTRY_URL = 'https://hub.docker.com/'
+        DOCKER_REGISTRY_URL = 'https://hub.docker.com/repository/docker/madhunath/jiitak/general'
         DOCKER_IMAGE_NAME = 'web-app'
         DOCKER_IMAGE_TAG = 'latest'
     }
