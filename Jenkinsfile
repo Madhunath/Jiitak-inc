@@ -1,9 +1,10 @@
 pipeline {
     agent any
-
+    
     environment {
+        DOCKER_REGISTRY_URL = 'https://hub.docker.com/'
         DOCKER_IMAGE_NAME = 'web-app'
-        REMOTE_DOCKER_HOST = '3.93.51.143'
+        DOCKER_IMAGE_TAG = 'latest'
     }
 
     stages {
@@ -16,54 +17,29 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.withRegistry(credentialsId: '0e44a166-b430-4a73-97c4-11d28fc113d6', toolName: 'docker') {
-                        def customImage = docker.build(env.DOCKER_IMAGE_NAME)
-                    }
+                    // Build Docker image
+                    sh "docker build -t ${DOCKER_REGISTRY_URL}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
                 }
             }
         }
 
-        stage('Transfer Docker Image to EC2') {
+        stage('Push Docker Image') {
             steps {
                 script {
-                    sshagent(['newkey.pem']) {
-                        // Copy the Docker image to EC2
-                        sh "scp -i newkey.pem -o StrictHostKeyChecking=no \${DOCKER_IMAGE_NAME}.tar.gz ec2-user@${REMOTE_DOCKER_HOST}:/tmp"
-                    }
-                }
-            }
-        }
+                    // Login to Docker registry
+                    sh "docker login -u <madhunath> -p <Madhunath@007> ${DOCKER_REGISTRY_URL}"
 
-        stage('Load Docker Image on EC2') {
-            steps {
-                script {
-                    // Load the Docker image on EC2
-                    sshagent(['newkey.pem']) {
-                        sh "ssh -i newkey.pem ec2-user@${REMOTE_DOCKER_HOST} 'docker load -i /tmp/${DOCKER_IMAGE_NAME}.tar.gz'"
-                    }
-                }
-            }
-        }
-
-        stage('Run Docker Container on EC2') {
-            steps {
-                script {
-                    // Run the Docker container on EC2
-                    sshagent(['newkey.pem']) {
-                        sh "ssh -i newkey.pem ec2-user@${REMOTE_DOCKER_HOST} 'docker run -d -p 3000:3000 ${DOCKER_IMAGE_NAME}'"
-                    }
+                    // Push Docker image
+                    sh "docker push ${DOCKER_REGISTRY_URL}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
                 }
             }
         }
     }
 
     post {
-        success {
-            echo "Docker image built and container is running successfully on EC2!"
-        }
-
-        failure {
-            echo "Failed to build Docker image or run the container on EC2."
+        always {
+            // Cleanup: Logout from Docker registry
+            sh "docker logout ${DOCKER_REGISTRY_URL}"
         }
     }
 }
